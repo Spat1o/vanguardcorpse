@@ -4,10 +4,9 @@ import type { ChatMessage } from '../types';
 
 interface LootLogScreenProps {
     messages: ChatMessage[];
-    onClose: () => void;
 }
 
-const LootLogScreen: React.FC<LootLogScreenProps> = ({ messages, onClose }) => {
+const LootLogScreen: React.FC<LootLogScreenProps> = ({ messages }) => {
     const endOfLogRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {

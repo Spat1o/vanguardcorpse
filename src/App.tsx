@@ -10,6 +10,8 @@ import SettingsScreen from './components/SettingsScreen';
 import ChatBox from './components/ChatBox';
 import ConfirmResetModal from './components/ConfirmResetModal';
 
+const LOCAL_STORAGE_KEY = 'vanguardCorpseSimulatorState';
+
 function getWeightedRandomItem(): LootItem {
     let random = Math.random() * TOTAL_WEIGHT;
     for (const item of DEFAULT_LOOT_TABLE) {
@@ -23,13 +25,14 @@ function getWeightedRandomItem(): LootItem {
 }
 
 const App: React.FC = () => {
+    // --- State Initialization ---
     const [inventory, setInventory] = useState<Record<string, InventoryItem>>({});
     const [skeletonKeys, setSkeletonKeys] = useState<number>(0);
     const [corpsesOpened, setCorpsesOpened] = useState<number>(0);
     const [totalProfit, setTotalProfit] = useState<number>(0);
     const [totalGlacitePowder, setTotalGlacitePowder] = useState<number>(0);
     
-    // Message States
+    // Message States (not persisted)
     const [logMessages, setLogMessages] = useState<ChatMessage[]>([]);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     
@@ -43,6 +46,44 @@ const App: React.FC = () => {
     const [isLootLogOpen, setIsLootLogOpen] = useState(false);
     const [isResetModalOpen, setIsResetModalOpen] = useState(false);
     
+    // --- Load state from localStorage on initial render ---
+    useEffect(() => {
+        try {
+            const savedStateJSON = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedStateJSON) {
+                const savedState = JSON.parse(savedStateJSON);
+                setInventory(savedState.inventory || {});
+                setSkeletonKeys(savedState.skeletonKeys || 0);
+                setCorpsesOpened(savedState.corpsesOpened || 0);
+                setTotalProfit(savedState.totalProfit || 0);
+                setTotalGlacitePowder(savedState.totalGlacitePowder || 0);
+                setGiftsFromDeparted(savedState.giftsFromDeparted || false);
+                setDyeMultiplier(savedState.dyeMultiplier || 1);
+            }
+        } catch (error) {
+            console.error("Failed to load state from localStorage:", error);
+        }
+    }, []);
+
+    // --- Save state to localStorage on change ---
+    useEffect(() => {
+        const stateToSave = {
+            inventory,
+            skeletonKeys,
+            corpsesOpened,
+            totalProfit,
+            totalGlacitePowder,
+            giftsFromDeparted,
+            dyeMultiplier,
+        };
+        try {
+            window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
+        } catch (error) {
+            console.error("Failed to save state to localStorage:", error);
+        }
+    }, [inventory, skeletonKeys, corpsesOpened, totalProfit, totalGlacitePowder, giftsFromDeparted, dyeMultiplier]);
+
+
     const addMessage = useCallback((content: React.ReactNode, type: 'log' | 'chat') => {
         const message = { id: Date.now().toString() + Math.random(), content };
         if (type === 'log') {
@@ -170,6 +211,7 @@ const App: React.FC = () => {
     }, []);
 
     const confirmAndReset = useCallback(() => {
+        // Clear state
         setInventory({});
         setSkeletonKeys(0);
         setCorpsesOpened(0);
@@ -179,6 +221,15 @@ const App: React.FC = () => {
         setChatMessages([]);
         setGiftsFromDeparted(false);
         setDyeMultiplier(1);
+        
+        // Clear localStorage
+        try {
+            window.localStorage.removeItem(LOCAL_STORAGE_KEY);
+        } catch (error) {
+            console.error("Failed to clear state from localStorage:", error);
+        }
+
+        // Close all modals
         setIsInventoryOpen(false);
         setIsSettingsOpen(false);
         setIsLootLogOpen(false);
@@ -224,7 +275,7 @@ const App: React.FC = () => {
                 totalGlacitePowder={totalGlacitePowder}
             />
             <ChatBox messages={chatMessages} />
-            {isLootLogOpen && <LootLogScreen messages={logMessages} onClose={() => setIsLootLogOpen(false)} />}
+            {isLootLogOpen && <LootLogScreen messages={logMessages} />}
             {isInventoryOpen && <InventoryScreen inventory={inventory} onClose={() => setIsInventoryOpen(false)} />}
             {isSettingsOpen && (
                 <SettingsScreen 
